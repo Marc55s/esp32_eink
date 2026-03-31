@@ -6,7 +6,7 @@
     # rust build helper
     naersk.url = "github:nix-community/naersk";
     # esp-idf packaged for nix with c compilers
-    nixpkgs-esp-dev.url = "github:madmo/nixpkgs-esp-dev/use-patchelf-instead-of-fhsenv";
+    nixpkgs-esp-dev.url = "github:mirrexagon/nixpkgs-esp-dev";
     esp32 = {
       url = "github:marc55s/esp32-idf-rust";
       #inputs.nixpkgs.follows = "nixpkgs";
@@ -27,13 +27,21 @@
           };
 
           esp-idf = (pkgs.esp-idf-full.override {
-            rev = "v5.3.3";
-            sha256 = "sha256-ESX+K0BrIKEYKzgdRlwZqAY7EvrQZ88V9xr7PtBofI4=";
+            rev = "v5.5.3";
+            sha256 = "sha256-+vtBTVI/EDIBJMpg3i3L6K9AyUxk+kmpI+QAJy2q9Dk=";
           });
         in {
           _module.args.pkgs = import inputs.nixpkgs {
             inherit system;
-            overlays = [ (import "${nixpkgs-esp-dev}/overlay.nix") ];
+            # overlays = [ (import "${nixpkgs-esp-dev}/overlay.nix") ];
+            overlays = [
+              (import "${nixpkgs-esp-dev}/overlay.nix")
+              (final: prev: {
+                # This creates an alias so that when anything asks for libxml2_13, 
+                # it gets the standard libxml2.
+                libxml2_13 = prev.libxml2;
+              })
+            ];
           };
 
           packages.default = naersk'.buildPackage {
@@ -53,7 +61,15 @@
           };
 
           devShells.default = pkgs.mkShell {
-            packages = [ pkgs.bacon pkgs.espflash pkgs.python3 esp-idf pkgs.ldproxy toolchain esp32.packages.x86_64-linux.toolchain-hook ];
+            packages = [
+              pkgs.bacon
+              pkgs.espflash
+              pkgs.python3
+              esp-idf
+              pkgs.ldproxy
+              toolchain
+              esp32.packages.x86_64-linux.toolchain-hook
+            ];
           };
         };
       flake = { };
