@@ -18,72 +18,45 @@ use esp_idf_svc::hal::{
         config::{Config, DriverConfig},
         SpiDeviceDriver, SpiDriver,
     },
-    units::FromValueType, // Required for .MHz()
 };
 
 fn main() {
-    // It's necessary to call this function to link the patches
-    // for the esp-idf-sys crate
     esp_idf_svc::sys::link_patches();
 
-    // Bind the log to the ESP-IDF log output
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let spi = peripherals.spi3;
+    let spi = peripherals.spi2;
 
-    println!("Setting up GPIOs on the left side...");
-    // BUSY (Input), RST and DC (Output)
-    // Note: Some Waveshare boards need Pull::Up, others Pull::Floating.
-    // We'll use Up to be safe.
-    let busy = PinDriver::input(peripherals.pins.gpio32, Pull::Down).unwrap();
-    let rst = PinDriver::output(peripherals.pins.gpio33).unwrap(); // Was 33
-    let dc = PinDriver::output(peripherals.pins.gpio25).unwrap(); // Was 25
+    let busy = PinDriver::input(peripherals.pins.gpio10, Pull::Floating).unwrap();
+    let dc = PinDriver::output(peripherals.pins.gpio9).unwrap();
+    let rst = PinDriver::output(peripherals.pins.gpio8).unwrap();
 
-    // SPI Pins - Strictly Left Side
-    let sdo = peripherals.pins.gpio14; // DIN / MOSI
-    let sclk = peripherals.pins.gpio27; // CLK / SCK
-    let cs = Some(peripherals.pins.gpio26); // CS
-    let sdi: Option<AnyInputPin> = None; // MISO not used
+    let sdo = peripherals.pins.gpio0;
+    let sclk = peripherals.pins.gpio1;
+    let cs = Some(peripherals.pins.gpio2);
+    let sdi: Option<AnyInputPin> = None;
 
-    println!("Initializing SPI Driver at 2MHz...");
     let spi_config = DriverConfig::new();
     let spi_driver = SpiDriver::new(spi, sclk, sdo, sdi, &spi_config).unwrap();
-
-    // E-Papers fail frequently if SPI speed is too high (default is often >40MHz)
-    let spi_driver_config = Config::new().baudrate(2.MHz().into());
+    let spi_driver_config = Config::default();
     let mut spi_device = SpiDeviceDriver::new(spi_driver, cs, &spi_driver_config).unwrap();
 
-    let mut delay = Delay::new(100);
+    let mut epd = Epd2in13::new(&mut spi_device, busy, dc, rst, &mut Delay::new(1), None).unwrap();
 
-    println!("Initializing E-Paper Display...");
-    // Increased delay for the reset cycle to 100ms
-    let mut epd = Epd2in13::new(&mut spi_device, busy, dc, rst, &mut delay, None)
-        .expect("e-Paper hardware init failed - check wiring!");
-
-    println!("Creating Display Buffer...");
     let mut display = Display2in13::default();
     display.set_rotation(DisplayRotation::Rotate90);
-
-    // Clear the buffer with White
     let _ = Rectangle::new(Point::new(0, 0), Size::new(250, 122))
         .into_styled(PrimitiveStyle::with_fill(Color::White))
         .draw(&mut display);
 
-    // Draw Text
     let style = MonoTextStyle::new(&FONT_6X10, Color::Black);
-    let _ = Text::new("Hello Rust World!", Point::new(10, 50), style).draw(&mut display);
+    let _ = Text::new("Hello World", Point::new(0, 50), style).draw(&mut display);
 
-    println!("Updating Frame (sending data)...");
+    let mut delay = Delay::new(10);
     epd.update_frame(&mut spi_device, display.buffer(), &mut delay)
-        .expect("Failed to send frame to EPD");
+        .unwrap();
+    epd.display_frame(&mut spi_device, &mut delay).unwrap();
 
-    println!("Refreshing Display (physical update)...");
-    epd.display_frame(&mut spi_device, &mut delay)
-        .expect("Failed to trigger display refresh");
-
-    println!("Putting EPD to sleep...");
     epd.sleep(&mut spi_device, &mut delay).unwrap();
-
-    println!("Done! Screen should show content now.");
 }
