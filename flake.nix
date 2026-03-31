@@ -8,7 +8,7 @@
     # esp-idf packaged for nix with c compilers
     nixpkgs-esp-dev.url = "github:madmo/nixpkgs-esp-dev/use-patchelf-instead-of-fhsenv";
     esp32 = {
-      url = "github:madmo/esp32-idf-rust";
+      url = "github:marc55s/esp32-idf-rust";
       #inputs.nixpkgs.follows = "nixpkgs";
     };
   };
