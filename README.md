@@ -1,5 +1,5 @@
 # E-Ink with Rust for the ESP32
-Before running check if the pins correclty align with your hardware setup.
+Before running check if the pins align correctly with your hardware setup.
 
 ## Run & Flash the ESP32
 ~~~bash
