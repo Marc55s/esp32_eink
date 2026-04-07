@@ -1,3 +1,0 @@
-[submodule "epd-waveshare"]
-	path = epd-waveshare
-	url = ssh://git@forgejo.cryne.me/Patrick/epd-waveshare.git
